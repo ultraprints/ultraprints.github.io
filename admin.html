@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltraPrints | Admin Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-color': '#C026D3', /* Fuchsia 600 - Main accent */
+                        'secondary-color': '#4C1D95', /* Violet 900 - Darker accent */
+                        'accent-light': '#FBCFE8' /* Pink 200 - For text contrast */
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Base styles for Glassmorphism, matching order.html */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #4A0E4B; 
+            background-image: radial-gradient(circle at 10% 20%, #A21CAF 0%, #4A0E4B 90%);
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 40px 0 rgba(192, 38, 211, 0.35);
+            border-radius: 1.75rem;
+            color: white; 
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Utility to ensure Base64 images display correctly */
+        .order-image {
+            object-fit: contain; /* Use contain to ensure full image is visible */
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-start p-4 md:p-8">
+
+    <main class="w-full max-w-6xl pt-4 pb-16">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-10 border-b pb-4">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4 md:mb-0">UltraPrints Admin</h1>
+            
+            <!-- Lock Status and Control -->
+            <div class="flex items-center space-x-4">
+                <span id="lockStatus" class="text-xl font-semibold px-4 py-2 rounded-full transition-colors duration-300">
+                    Checking Status...
+                </span>
+                <button id="lockToggleButton" disabled
+                    class="px-6 py-2 rounded-full text-white font-bold transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-wait">
+                    Loading
+                </button>
+                <a href="index.html" class="text-accent-light hover:text-white transition-colors flex items-center">
+                    <span class="mr-2 hidden sm:inline">Go to Home</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                </a>
+            </div>
+        </div>
+        
+        <p id="loadingOrders" class="text-center text-xl text-primary-color font-semibold mb-6 flex items-center justify-center">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Fetching orders in real-time...
+        </p>
+
+        <!-- Orders List Container -->
+        <div id="ordersContainer" class="space-y-6">
+            <!-- Order Cards will be dynamically inserted here -->
+        </div>
+
+    </main>
+
+    <!-- JavaScript Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, query, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- FIREBASE CONFIG (Hardcoded - Must match order.html) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyD1rLCcwyFrIKd20YjxpYbX8VbvizArxEo",
+            authDomain: "ultraprints-61820.firebaseapp.com",
+            projectId: "ultraprints-61820",
+            storageBucket: "ultraprints-61820.firebasestorage.app",
+            messagingSenderId: "142922896839",
+            appId: "1:142922896839:web:28b4ee378142dc690f35e2",
+            measurementId: "G-4PCFERE5G5"
+        };
+        const appId = firebaseConfig.projectId; 
+        const ORDER_COLLECTION_PATH = `artifacts/${appId}/public/data/orders`;
+        const LOCK_DOC_PATH = `artifacts/${appId}/public/data/settings`;
+        // ------------------------------------
+
+        // Global Firebase instances and UI elements
+        let db, auth;
+        let isOrdersLocked = false;
+        const loadingMessage = document.getElementById('loadingOrders');
+        const ordersContainer = document.getElementById('ordersContainer');
+        const lockStatusElement = document.getElementById('lockStatus');
+        const lockToggleButton = document.getElementById('lockToggleButton');
+
+        /**
+         * Renders the fetched orders into the dashboard UI.
+         * @param {Array<Object>} orders - Array of order objects from Firestore.
+         */
+        function renderOrders(orders) {
+            ordersContainer.innerHTML = ''; // Clear existing content
+            loadingMessage.classList.add('hidden');
+
+            if (orders.length === 0) {
+                ordersContainer.innerHTML = '<p class="text-center text-2xl text-white/70 mt-10 p-6 glass-card">No orders found yet. The queue is clear!</p>';
+                return;
+            }
+
+            orders.forEach(order => {
+                const orderDate = order.timestamp ? new Date(order.timestamp).toLocaleString() : 'N/A';
+                
+                // Use the Base64 string directly for the image source
+                const imageSrc = order.imageBase64 || 'https://placehold.co/100x100/4C1D95/FFFFFF?text=No+Image';
+
+                const orderCard = document.createElement('div');
+                orderCard.className = 'glass-card p-6 flex flex-col md:flex-row gap-6 hover:bg-white/15 transition duration-200';
+                
+                orderCard.innerHTML = `
+                    <!-- Image Preview -->
+                    <div class="md:w-1/4 flex-shrink-0 flex items-center justify-center">
+                        <!-- Limiting size for Base64 safety, but still showing the image -->
+                        <img src="${imageSrc}" alt="Customer Upload" class="order-image w-full h-auto rounded-lg shadow-lg object-contain max-h-48 md:max-h-64 border border-primary-color">
+                    </div>
+
+                    <!-- Order Details -->
+                    <div class="md:w-3/4 space-y-3">
+                        <p class="text-sm font-mono text-accent-light">Order ID: <span class="text-white font-semibold break-all">${order.id}</span></p>
+                        <h3 class="text-2xl font-bold text-primary-color">${order.firstName} ${order.lastName}</h3>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-base">
+                            <p class="col-span-1 sm:col-span-2"><strong>Email:</strong> <span class="text-accent-light break-all">${order.email}</span></p>
+                            <p class="col-span-1"><strong>Phone:</strong> <span class="text-accent-light">${order.phone}</span></p>
+                            <p class="col-span-1"><strong>Date:</strong> <span class="text-accent-light">${orderDate}</span></p>
+                        </div>
+
+                        <div class="pt-2">
+                            <span class="font-bold text-lg mr-2">Status:</span> 
+                            <span class="text-lg font-bold ${order.status.includes('Pending') ? 'text-yellow-400' : 'text-green-400'}">${order.status}</span>
+                            <p class="text-xs font-mono text-white/50 mt-1 break-all">Customer ID: ${order.userId}</p>
+                        </div>
+                    </div>
+                `;
+                ordersContainer.appendChild(orderCard);
+            });
+        }
+
+        /**
+         * Listens to the specific lock state document and updates the UI.
+         */
+        function initializeLockStateListener() {
+            const lockDocRef = doc(db, LOCK_DOC_PATH, 'order_lock');
+            
+            onSnapshot(lockDocRef, (docSnap) => {
+                lockToggleButton.disabled = false;
+                lockToggleButton.classList.remove('disabled:cursor-wait');
+
+                if (docSnap.exists() && docSnap.data().isLocked === true) {
+                    isOrdersLocked = true;
+                    lockStatusElement.textContent = "Orders are CLOSED";
+                    lockStatusElement.className = "bg-red-700 text-white text-xl font-semibold px-4 py-2 rounded-full";
+                    lockToggleButton.textContent = "Click to OPEN Orders";
+                    lockToggleButton.className = "px-6 py-2 rounded-full bg-green-500 text-white font-bold transition-all duration-300 transform hover:scale-105";
+                } else {
+                    isOrdersLocked = false;
+                    lockStatusElement.textContent = "Orders are OPEN";
+                    lockStatusElement.className = "bg-green-600 text-white text-xl font-semibold px-4 py-2 rounded-full";
+                    lockToggleButton.textContent = "Click to CLOSE Orders";
+                    lockToggleButton.className = "px-6 py-2 rounded-full bg-red-500 text-white font-bold transition-all duration-300 transform hover:scale-105";
+                }
+            }, (error) => {
+                console.error("Error listening to lock state:", error);
+                lockStatusElement.textContent = "Lock status error";
+                lockStatusElement.className = "bg-yellow-500 text-black text-xl font-semibold px-4 py-2 rounded-full";
+            });
+        }
+
+        /**
+         * Toggles the lock state in Firestore.
+         */
+        lockToggleButton.onclick = async () => {
+            lockToggleButton.disabled = true;
+            lockStatusElement.textContent = "Updating...";
+            lockStatusElement.className = "bg-blue-500 text-white text-xl font-semibold px-4 py-2 rounded-full";
+
+            try {
+                const lockDocRef = doc(db, LOCK_DOC_PATH, 'order_lock');
+                // The new state is the opposite of the current state
+                await setDoc(lockDocRef, { isLocked: !isOrdersLocked }, { merge: true });
+                // The listener will update the UI automatically
+            } catch (error) {
+                console.error("Failed to toggle lock state:", error);
+                alert("Failed to change lock state. Check console for details.");
+            } finally {
+                // The listener handles re-enabling the button when data is confirmed
+            }
+        };
+
+        /**
+         * Initializes Firebase and starts all listeners.
+         */
+        async function initializeFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Anonymous sign-in is used since this is a public admin page (relies on public security rules)
+                await signInAnonymously(auth);
+                console.log("Admin Dashboard: Firebase initialized and authenticated successfully.");
+
+                // Start Order History Listener
+                const ordersQuery = query(collection(db, ORDER_COLLECTION_PATH));
+                onSnapshot(ordersQuery, (snapshot) => {
+                    const orders = [];
+                    snapshot.forEach(doc => {
+                        orders.push({ id: doc.id, ...doc.data() });
+                    });
+                    renderOrders(orders);
+                }, (error) => {
+                    console.error("Error streaming orders:", error);
+                    loadingMessage.textContent = "Error fetching orders. Check security rules and console.";
+                    loadingMessage.classList.remove('text-primary-color');
+                    loadingMessage.classList.add('text-red-500');
+                });
+                
+                // Start Lock State Listener
+                initializeLockStateListener();
+
+            } catch (error) {
+                console.error("Admin Dashboard: Firebase initialization failed:", error);
+                loadingMessage.textContent = `FATAL ERROR: Initialization failed. See console.`;
+                loadingMessage.classList.remove('text-primary-color');
+                loadingMessage.classList.add('text-red-500');
+            }
+        }
+
+        // Initialize Firebase on load
+        initializeFirebase();
+
+    </script>
+</body>
+</html>
