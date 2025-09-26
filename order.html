@@ -92,13 +92,25 @@
     <!-- Main Order Form Container -->
     <main class="w-full max-w-4xl pt-8 pb-16">
         <h1 class="text-4xl md:text-5xl font-extrabold text-white text-center mb-6">Confirm Your UltraPrint Order</h1>
-        <p class="text-center text-accent-light mb-12">Please confirm your details and image to finalize your order. You will receive an SMS confirmation shortly.</p>
+        
+        <!-- Order Closure Message (Hidden by default) -->
+        <div id="closedMessage" class="glass-card p-10 hidden text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 19.25a7.25 7.25 0 110-14.5 7.25 7.25 0 010 14.5z" /></svg>
+            <h2 class="text-3xl font-bold text-red-400 mb-4">Orders Are Temporarily Closed</h2>
+            <p class="text-xl text-white">We are currently not accepting new print submissions. Please check back later!</p>
+        </div>
 
         <!-- Glass Card Form -->
         <div id="formContainer" class="glass-card p-6 sm:p-10">
 
-            <!-- The Form (Now correctly structured and visible) -->
-            <form id="orderForm" class="space-y-10">
+            <!-- Initial Loading State -->
+            <p id="lockLoading" class="text-center text-xl text-white font-semibold flex items-center justify-center py-10">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Checking order status...
+            </p>
+
+            <!-- The Form (Initially hidden until lock status is confirmed) -->
+            <form id="orderForm" class="space-y-10 hidden">
 
                 <!-- STEP 1: Contact Details -->
                 <section>
@@ -150,7 +162,7 @@
                             <input type="file" id="imageUploadInput" accept="image/*" onchange="handleImageUpload(event)" required aria-label="Upload Image">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white/70 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                             <p class="text-lg font-semibold text-white">Drag & drop or Click to Upload</p>
-                            <p class="text-sm text-accent-light">Max file size: 10MB. Formats: JPG, PNG, TIFF.</p>
+                            <p class="text-sm text-accent-light">Max file size: 10MB (recommended for Base64). Formats: JPG, PNG, TIFF.</p>
                         </div>
 
                         <!-- Preview Area -->
@@ -200,14 +212,12 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, addDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, addDoc, collection, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // Global variable to store the Base64 image string for submission
         let base64Image = null; 
 
-        // --- FIREBASE CONFIG (Hardcoded as per user request) ---
-        // NOTE: This hardcoded configuration may be the source of the auth/configuration-not-found error 
-        // in this environment, but we are adhering to your strict instruction to use it.
+        // --- FIREBASE CONFIG (Hardcoded - Must match admin.html) ---
         const firebaseConfig = {
             apiKey: "AIzaSyD1rLCcwyFrIKd20YjxpYbX8VbvizArxEo",
             authDomain: "ultraprints-61820.firebaseapp.com",
@@ -217,17 +227,22 @@
             appId: "1:142922896839:web:28b4ee378142dc690f35e2",
             measurementId: "G-4PCFERE5G5"
         };
+        const appId = firebaseConfig.projectId;
+        const LOCK_DOC_PATH = `artifacts/${appId}/public/data/settings`;
         // ------------------------------------
 
         // Global Firebase instances
         let db, auth;
         const form = document.getElementById('orderForm');
+        const formContainer = document.getElementById('formContainer');
+        const closedMessage = document.getElementById('closedMessage');
+        const lockLoading = document.getElementById('lockLoading');
         const submitButton = document.getElementById('submitButton');
         const loadingMessage = document.getElementById('loadingMessage');
         const imageUploadInput = document.getElementById('imageUploadInput');
-
+        
         /**
-         * Initializes Firebase and authenticates the user using the hardcoded config.
+         * Initializes Firebase.
          */
         async function initializeFirebase() {
             try {
@@ -235,24 +250,53 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Use global token if available (to satisfy environment), otherwise sign in anonymously
+                // Use global token if available, otherwise sign in anonymously
                 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                 
                 if (initialAuthToken) {
+                    // Attempt to use environment token if provided
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
+                    // Fallback to anonymous sign-in
                     await signInAnonymously(auth);
                 }
-                console.log("Firebase initialized and authenticated successfully.");
+                console.log("Order Form: Firebase initialized and authenticated successfully.");
+                initializeLockEnforcement();
 
             } catch (error) {
-                console.error("Firebase initialization failed:", error);
+                console.error("Order Form: Firebase initialization failed:", error);
+                lockLoading.textContent = 'Error loading application status. Please refresh.';
             }
         }
+        
+        /**
+         * Listens to the lock status document and shows/hides the form.
+         */
+        function initializeLockEnforcement() {
+            const lockDocRef = doc(db, LOCK_DOC_PATH, 'order_lock');
+            
+            onSnapshot(lockDocRef, (docSnap) => {
+                lockLoading.classList.add('hidden'); // Hide loading status
+
+                if (docSnap.exists() && docSnap.data().isLocked === true) {
+                    // Orders are locked
+                    form.classList.add('hidden');
+                    closedMessage.classList.remove('hidden');
+                } else {
+                    // Orders are open (or document doesn't exist yet)
+                    form.classList.remove('hidden');
+                    closedMessage.classList.add('hidden');
+                }
+            }, (error) => {
+                console.error("Error checking lock state:", error);
+                lockLoading.textContent = 'Error checking order status. Showing form as fallback.';
+                form.classList.remove('hidden'); // Default to showing the form if status check fails
+            });
+        }
+
 
         /**
          * Reads the image file as a Base64 Data URL and stores it globally.
-         * @param {Event} event - The change event from the file input.
          */
         window.handleImageUpload = function(event) {
             const file = event.target.files[0];
@@ -262,10 +306,9 @@
             base64Image = null; // Clear previous image data
 
             if (file) {
-                // The 10MB client-side limit helps reduce the risk of exceeding the 1MB Firestore limit, 
-                // but does not guarantee it.
+                // Warning: The 1MB Firestore limit is a real risk here.
                 if (file.size > 10 * 1024 * 1024) { 
-                    message.textContent = "Error: File is too large (10MB max).";
+                    message.textContent = "Error: File is too large (10MB max recommendation).";
                     message.classList.remove('text-green-300');
                     message.classList.add('text-red-400');
                     message.classList.remove('hidden');
@@ -293,8 +336,6 @@
 
         /**
          * Handles the form submission: saves Base64 image and metadata to Firestore.
-         * Cloudinary logic is entirely removed.
-         * @param {Event} event - The form submit event.
          */
         async function handleOrder(event) {
             event.preventDefault();
@@ -308,25 +349,23 @@
 
             try {
                 if (!db || !auth) {
-                    await initializeFirebase();
+                    // Should be initialized, but double check
+                    await initializeFirebase(); 
                 }
 
-                // 1. Skip external upload and check for Base64 data
                 if (!file || !base64Image) {
                     throw new Error("Please select an image file to upload.");
                 }
                 
-                // 2. SAVE ORDER METADATA TO FIRESTORE
+                // --- SAVE ORDER DATA TO FIRESTORE ---
                 const userId = auth.currentUser?.uid || crypto.randomUUID();
-                // Use the hardcoded projectId for the app ID since __app_id is unreliable when hardcoding config
-                const appId = firebaseConfig.projectId; 
-
+                
                 const orderData = {
                     firstName: formData.get('firstName'),
                     lastName: formData.get('lastName'),
                     phone: formData.get('phone'),
                     email: formData.get('email'),
-                    imageBase64: base64Image, // <-- SAVING THE BASE64 STRING DIRECTLY
+                    imageBase64: base64Image, // SAVING THE BASE64 STRING
                     userId: userId,
                     timestamp: new Date().toISOString(),
                     status: 'Pending Confirmation SMS'
@@ -335,30 +374,27 @@
                 const orderCollectionRef = collection(db, `artifacts/${appId}/public/data/orders`);
                 const docRef = await addDoc(orderCollectionRef, orderData);
 
-                // 3. DISPLAY SUCCESS MESSAGE
+                // --- DISPLAY SUCCESS MESSAGE ---
                 document.getElementById('orderIdDisplay').textContent = `ID: ${docRef.id}`;
                 document.getElementById('successModal').classList.remove('hidden');
-                document.getElementById('formContainer').classList.add('hidden');
+                formContainer.classList.add('hidden'); // Hide the entire form container
 
             } catch (error) {
                 console.error("Order submission failed:", error.message || error);
                 
-                // Check for potential Firestore size limit error
                 let errorMessage = error.message || 'Unknown error.';
                 if (errorMessage.includes('document size')) {
-                    errorMessage = "Failed: Image is too large. Please try a smaller image (under 1MB).";
+                    errorMessage = "Failed: Image is too large. Base64 documents must be under 1MB.";
                 }
                 
-                // Use custom alert/modal instead of window.alert()
+                // Show a temporary error message above the form
                 const alertContent = document.createElement('div');
-                alertContent.innerHTML = `<p class="text-red-400 font-semibold mb-4">Error: ${errorMessage}</p>`;
-                
-                // Show a temporary error message in the form container
-                document.getElementById('formContainer').insertAdjacentElement('beforebegin', alertContent);
-                setTimeout(() => alertContent.remove(), 5000); 
+                alertContent.innerHTML = `<p class="text-red-400 font-semibold text-center mb-4">${errorMessage}</p>`;
+                formContainer.insertAdjacentElement('beforebegin', alertContent);
+                setTimeout(() => alertContent.remove(), 7000); 
 
             } finally {
-                // Reset form state on success or error
+                // Reset form state
                 submitButton.disabled = false;
                 submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
                 loadingMessage.classList.add('hidden');
