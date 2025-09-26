@@ -211,7 +211,7 @@
     <!-- JavaScript Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // REMOVED: signInAnonymously and signInWithCustomToken to prevent auth errors
         import { getFirestore, addDoc, collection, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // Global variable to store the Base64 image string for submission
@@ -232,7 +232,7 @@
         // ------------------------------------
 
         // Global Firebase instances
-        let db, auth;
+        let db; // Removed 'auth'
         const form = document.getElementById('orderForm');
         const formContainer = document.getElementById('formContainer');
         const closedMessage = document.getElementById('closedMessage');
@@ -242,25 +242,16 @@
         const imageUploadInput = document.getElementById('imageUploadInput');
         
         /**
-         * Initializes Firebase.
+         * Initializes Firebase (without authentication).
          */
         async function initializeFirebase() {
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app);
                 
-                // Use global token if available, otherwise sign in anonymously
-                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                
-                if (initialAuthToken) {
-                    // Attempt to use environment token if provided
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    // Fallback to anonymous sign-in
-                    await signInAnonymously(auth);
-                }
-                console.log("Order Form: Firebase initialized and authenticated successfully.");
+                // Per user request, no authentication is performed.
+                console.log("Order Form: Firebase initialized (no authentication attempted).");
+
                 initializeLockEnforcement();
 
             } catch (error) {
@@ -273,6 +264,12 @@
          * Listens to the lock status document and shows/hides the form.
          */
         function initializeLockEnforcement() {
+            // Must check if db is initialized before using it
+            if (!db) {
+                console.error("Firestore DB not initialized. Cannot check lock status.");
+                return;
+            }
+            
             const lockDocRef = doc(db, LOCK_DOC_PATH, 'order_lock');
             
             onSnapshot(lockDocRef, (docSnap) => {
@@ -348,8 +345,8 @@
             const formData = new FormData(form);
 
             try {
-                if (!db || !auth) {
-                    // Should be initialized, but double check
+                if (!db) {
+                    // This should not happen if initializeFirebase runs on load, but check just in case.
                     await initializeFirebase(); 
                 }
 
@@ -358,7 +355,8 @@
                 }
                 
                 // --- SAVE ORDER DATA TO FIRESTORE ---
-                const userId = auth.currentUser?.uid || crypto.randomUUID();
+                // Since we are not authenticating, we must generate a random ID for the user.
+                const userId = crypto.randomUUID();
                 
                 const orderData = {
                     firstName: formData.get('firstName'),
