@@ -130,6 +130,22 @@
 
     <!-- AUDIO ELEMENT: Source is river.mp3, set to loop for ambient sound -->
     <audio id="riverAudio" src="river.mp3" loop></audio>
+    
+    <!-- Audio Toggle Button - Fixed position to ensure user can click it to start sound -->
+    <button id="audioToggle" aria-label="Toggle ambient sound"
+            class="fixed top-4 right-4 z-50 p-3 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md border border-white/50 text-white transition-colors duration-200 shadow-xl">
+        <!-- SVG for Mute (Default State) -->
+        <svg id="muteIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.5 14L20 16.5m-2.5-5.5L20 9m-14 3h2m-2-4v8a2 2 0 002 2h4a2 2 0 002-2V8a2 2 0 00-2-2H4a2 2 0 00-2 2v4a2 2 0 002 2zm10-2h4m-4 0v4m0-4L12 12" />
+        </svg>
+        <!-- SVG for Playing (Hidden Initially) -->
+        <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.536a.5.5 0 00-.707 0L12 11.364l-2.829-2.828a.5.5 0 00-.707.707L11.293 12l-2.829 2.829a.5.5 0 00.707.707L12 12.636l2.829 2.829a.5.5 0 00.707-.707L12.707 12l2.829-2.829a.5.5 0 000-.707z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5h1a.5.5 0 01.5.5v13a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-13a.5.5 0 01.5-.5zM8 8h1a.5.5 0 01.5.5v7a.5.5 0 01-.5.5H8a.5.5 0 01-.5-.5v-7a.5.5 0 01.5-.5zM14 8h1a.5.5 0 01.5.5v7a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-7a.5.5 0 01.5-.5z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19a7 7 0 100-14 7 7 0 000 14z" />
+        </svg>
+    </button>
+
 
     <!-- Loading Screen (Always first in the body) -->
     <div id="loadingScreen">
@@ -219,7 +235,7 @@
 
         <!-- Footer -->
         <footer class="text-center text-accent-light text-sm pt-8">
-            <p>&copy; 2025 UltraPrints. All rights reserved. | Project file: ultra.png (Logo Placeholder)</p>
+            <p>&copy; 2025 UltraPrints. All rights reserved.</p>
         </footer>
 
     </div>
@@ -253,9 +269,44 @@
             const confirmNo = document.getElementById('confirmNo');
             const mainContent = document.getElementById('mainContent');
             const glassCards = document.querySelectorAll('.glass-card');
-            const riverAudio = document.getElementById('riverAudio'); // Get the audio element
+            const riverAudio = document.getElementById('riverAudio'); 
+            const audioToggle = document.getElementById('audioToggle');
+            const muteIcon = document.getElementById('muteIcon');
+            const playIcon = document.getElementById('playIcon');
             
             let destinationUrl = '';
+            let isAudioPlaying = false; // Initial state: Muted
+
+            // Function to toggle audio playback and icon
+            const toggleAudio = () => {
+                if (riverAudio.paused) {
+                    // Set volume and attempt play
+                    riverAudio.volume = 0.3;
+                    riverAudio.play().then(() => {
+                        isAudioPlaying = true;
+                        muteIcon.classList.add('hidden');
+                        playIcon.classList.remove('hidden');
+                        audioToggle.ariaLabel = "Turn ambient sound off";
+                    }).catch(error => {
+                        console.error("Audio playback error:", error);
+                        // If blocked, keep state as muted and icons correct
+                        isAudioPlaying = false;
+                    });
+                } else {
+                    // Pause audio
+                    riverAudio.pause();
+                    isAudioPlaying = false;
+                    muteIcon.classList.remove('hidden');
+                    playIcon.classList.add('hidden');
+                    audioToggle.ariaLabel = "Turn ambient sound on";
+                }
+            };
+
+            // Attach event listener to the new button
+            if (audioToggle) {
+                audioToggle.addEventListener('click', toggleAudio);
+            }
+
 
             // --- 1. Loading Screen Logic ---
             // Hide loading screen after a short delay
@@ -264,18 +315,8 @@
                 // CRITICAL FIX: Disable pointer events immediately so the content underneath is clickable while the screen fades out.
                 loadingScreen.style.pointerEvents = 'none'; 
                 
-                // AUDIO PLAYBACK ATTEMPT
-                if (riverAudio) {
-                    // Set low volume for ambient background sound
-                    riverAudio.volume = 0.3;
-                    // Attempt to play the audio
-                    riverAudio.play().catch(error => {
-                        // Browsers often block autoplay without user interaction.
-                        // We catch the error but don't interrupt the UI flow.
-                        console.log("Audio playback blocked, user interaction required to start ambient sound.");
-                    });
-                }
-
+                // AUDIO: Removed automatic playback attempt here. User must click the new button.
+                
                 // Remove initial opacity class from main content
                 mainContent.classList.remove('opacity-0'); 
 
@@ -312,7 +353,9 @@
                 confirmationModal.classList.remove('flex');
                 
                 // Stop the ambient audio before navigating
-                if (riverAudio) riverAudio.pause();
+                if (riverAudio && isAudioPlaying) {
+                    riverAudio.pause();
+                }
 
                 // Proceed to the destination page
                 if (destinationUrl) {
