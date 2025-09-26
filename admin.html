@@ -145,6 +145,7 @@
                                 <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">ID</th>
                                 <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Customer</th>
                                 <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell">Email</th>
+                                <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell">Phone</th> <!-- ADDED PHONE HEADER -->
                                 <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Submitted</th>
                                 <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
                                 <th class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider">Image</th>
@@ -153,7 +154,7 @@
                         <tbody id="ordersTableBody" class="divide-y divide-white/10">
                             <!-- Orders will be populated here by JavaScript -->
                             <tr id="noOrdersRow">
-                                <td colspan="6" class="p-4 text-center text-white/70">No new orders found.</td>
+                                <td colspan="7" class="p-4 text-center text-white/70">No new orders found.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -235,7 +236,7 @@
             if (orders.length === 0) {
                 ordersTableBody.innerHTML = `
                     <tr id="noOrdersRow">
-                        <td colspan="6" class="p-4 text-center text-white/70">No new orders found.</td>
+                        <td colspan="7" class="p-4 text-center text-white/70">No new orders found.</td> <!-- Updated colspan to 7 -->
                     </tr>
                 `;
                 return;
@@ -251,6 +252,7 @@
                     <td class="px-3 py-3 whitespace-nowrap text-sm font-medium text-primary-color">${order.id.substring(0, 6)}...</td>
                     <td class="px-3 py-3 whitespace-nowrap text-sm">${order.firstName} ${order.lastName}</td>
                     <td class="px-3 py-3 whitespace-nowrap text-sm hidden sm:table-cell">${order.email}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm hidden md:table-cell">${order.phone || 'N/A'}</td> <!-- ADDED PHONE CELL -->
                     <td class="px-3 py-3 whitespace-nowrap text-sm text-accent-light">${formatTimestamp(order.timestamp)}</td>
                     <td class="px-3 py-3 whitespace-nowrap">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -398,7 +400,7 @@
                 console.error("Error listening to orders:", error);
                 ordersTableBody.innerHTML = `
                     <tr id="errorOrdersRow">
-                        <td colspan="6" class="p-4 text-center text-red-400">Error loading orders.</td>
+                        <td colspan="7" class="p-4 text-center text-red-400">Error loading orders.</td>
                     </tr>
                 `;
             });
