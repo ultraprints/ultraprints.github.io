@@ -23,7 +23,7 @@
         }
     </script>
     <style>
-        /* Base styles for Glassmorphism, matching order.html */
+        /* Base styles for Glassmorphism */
         body {
             font-family: 'Inter', sans-serif;
             background: #4A0E4B; 
@@ -42,53 +42,151 @@
             transition: all 0.3s ease-in-out;
         }
 
-        /* Utility to ensure Base64 images display correctly */
-        .order-image {
-            object-fit: contain; /* Use contain to ensure full image is visible */
+        /* Order Row Hover Effect */
+        .order-row:hover {
+            background: rgba(255, 255, 255, 0.15);
+            cursor: pointer;
+        }
+
+        /* Responsive Table Scroll */
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Toggle Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #EF4444; /* Red for locked */
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #10B981; /* Green for open */
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
         }
     </style>
 </head>
 <body class="flex flex-col items-center justify-start p-4 md:p-8">
 
-    <main class="w-full max-w-6xl pt-4 pb-16">
-        <div class="flex flex-col md:flex-row justify-between items-center mb-10 border-b pb-4">
-            <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4 md:mb-0">UltraPrints Admin</h1>
-            
-            <!-- Lock Status and Control -->
-            <div class="flex items-center space-x-4">
-                <span id="lockStatus" class="text-xl font-semibold px-4 py-2 rounded-full transition-colors duration-300">
-                    Checking Status...
-                </span>
-                <button id="lockToggleButton" disabled
-                    class="px-6 py-2 rounded-full text-white font-bold transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-wait">
-                    Loading
-                </button>
-                <a href="index.html" class="text-accent-light hover:text-white transition-colors flex items-center">
-                    <span class="mr-2 hidden sm:inline">Go to Home</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                </a>
-            </div>
-        </div>
+    <!-- Back to Home Link -->
+    <a href="index.html" class="absolute top-4 left-4 text-white hover:text-accent-light flex items-center transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+        Back to Home
+    </a>
+
+    <!-- Main Admin Panel Container -->
+    <main class="w-full max-w-6xl pt-8 pb-16">
+        <h1 class="text-4xl md:text-5xl font-extrabold text-white text-center mb-10">UltraPrints Admin Dashboard</h1>
         
-        <p id="loadingOrders" class="text-center text-xl text-primary-color font-semibold mb-6 flex items-center justify-center">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            Fetching orders in real-time...
-        </p>
-
-        <!-- Orders List Container -->
-        <div id="ordersContainer" class="space-y-6">
-            <!-- Order Cards will be dynamically inserted here -->
+        <div id="loadingIndicator" class="text-center text-xl text-white font-semibold flex items-center justify-center py-10">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Connecting to database...
         </div>
 
+        <div id="content" class="space-y-10 hidden">
+
+            <!-- Order Lock Management -->
+            <section class="glass-card p-6 md:p-8">
+                <h2 class="text-3xl font-bold mb-4 text-primary-color">Order Status Control</h2>
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between p-4 bg-white/10 rounded-xl">
+                    <div class="mb-4 md:mb-0">
+                        <p class="text-xl font-semibold">Current Order Status:</p>
+                        <p id="lockStatusDisplay" class="text-2xl font-extrabold text-red-400">Locked</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <label class="switch">
+                            <input type="checkbox" id="orderLockToggle" onclick="toggleOrderLock(this)">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="text-lg font-semibold" id="toggleLabel">Set to OPEN</span>
+                    </div>
+                </div>
+                <p id="lockMessage" class="mt-3 text-center text-accent-light hidden">Updating status...</p>
+            </section>
+
+            <!-- Order List -->
+            <section class="glass-card p-6 md:p-8">
+                <h2 class="text-3xl font-bold mb-4 text-primary-color">Recent UltraPrints Orders</h2>
+                
+                <div id="ordersContainer" class="table-container">
+                    <table class="min-w-full divide-y divide-white/20">
+                        <thead class="bg-white/10">
+                            <tr>
+                                <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">ID</th>
+                                <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Customer</th>
+                                <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell">Email</th>
+                                <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Submitted</th>
+                                <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                                <th class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider">Image</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody" class="divide-y divide-white/10">
+                            <!-- Orders will be populated here by JavaScript -->
+                            <tr id="noOrdersRow">
+                                <td colspan="6" class="p-4 text-center text-white/70">No new orders found.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
     </main>
+    
+    <!-- Image Preview Modal -->
+    <div id="imageModal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+        <div class="max-w-4xl max-h-[90vh] glass-card p-6" onclick="event.stopPropagation()">
+            <img id="modalImage" src="" alt="Order Image Preview" class="max-w-full max-h-[80vh] rounded-lg">
+            <p class="text-center text-sm text-accent-light mt-4">Click anywhere outside the image to close.</p>
+        </div>
+    </div>
+
 
     <!-- JavaScript Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, query, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // NO AUTH IMPORTS: signInAnonymously, signInWithCustomToken, getAuth, etc.
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            collection, 
+            query, 
+            onSnapshot, 
+            orderBy 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // --- FIREBASE CONFIG (Hardcoded - Must match order.html) ---
+        // --- FIREBASE CONFIG (Must match order.html) ---
         const firebaseConfig = {
             apiKey: "AIzaSyD1rLCcwyFrIKd20YjxpYbX8VbvizArxEo",
             authDomain: "ultraprints-61820.firebaseapp.com",
@@ -98,163 +196,216 @@
             appId: "1:142922896839:web:28b4ee378142dc690f35e2",
             measurementId: "G-4PCFERE5G5"
         };
-        const appId = firebaseConfig.projectId; 
-        const ORDER_COLLECTION_PATH = `artifacts/${appId}/public/data/orders`;
+        const appId = firebaseConfig.projectId;
         const LOCK_DOC_PATH = `artifacts/${appId}/public/data/settings`;
+        const ORDERS_COLLECTION_PATH = `artifacts/${appId}/public/data/orders`;
         // ------------------------------------
 
         // Global Firebase instances and UI elements
-        let db, auth;
-        let isOrdersLocked = false;
-        const loadingMessage = document.getElementById('loadingOrders');
-        const ordersContainer = document.getElementById('ordersContainer');
-        const lockStatusElement = document.getElementById('lockStatus');
-        const lockToggleButton = document.getElementById('lockToggleButton');
+        let db; 
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const content = document.getElementById('content');
+        const ordersTableBody = document.getElementById('ordersTableBody');
+        const lockStatusDisplay = document.getElementById('lockStatusDisplay');
+        const orderLockToggle = document.getElementById('orderLockToggle');
+        const toggleLabel = document.getElementById('toggleLabel');
+        const lockMessage = document.getElementById('lockMessage');
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
 
         /**
-         * Renders the fetched orders into the dashboard UI.
-         * @param {Array<Object>} orders - Array of order objects from Firestore.
+         * Converts ISO timestamp string to a readable date/time format.
+         * @param {string} isoString The ISO 8601 timestamp string.
+         * @returns {string} Formatted date string.
+         */
+        function formatTimestamp(isoString) {
+            if (!isoString) return 'N/A';
+            const date = new Date(isoString);
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) + ' ' + 
+                   date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        /**
+         * Renders the order list table body.
+         * @param {Array<Object>} orders List of order documents.
          */
         function renderOrders(orders) {
-            ordersContainer.innerHTML = ''; // Clear existing content
-            loadingMessage.classList.add('hidden');
-
+            ordersTableBody.innerHTML = ''; // Clear existing rows
+            
             if (orders.length === 0) {
-                ordersContainer.innerHTML = '<p class="text-center text-2xl text-white/70 mt-10 p-6 glass-card">No orders found yet. The queue is clear!</p>';
+                ordersTableBody.innerHTML = `
+                    <tr id="noOrdersRow">
+                        <td colspan="6" class="p-4 text-center text-white/70">No new orders found.</td>
+                    </tr>
+                `;
                 return;
             }
 
-            orders.forEach(order => {
-                const orderDate = order.timestamp ? new Date(order.timestamp).toLocaleString() : 'N/A';
-                
-                // Use the Base64 string directly for the image source
-                const imageSrc = order.imageBase64 || 'https://placehold.co/100x100/4C1D95/FFFFFF?text=No+Image';
+            // Note: We avoid Firestore's orderBy and sort client-side (by timestamp descending)
+            const sortedOrders = orders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-                const orderCard = document.createElement('div');
-                orderCard.className = 'glass-card p-6 flex flex-col md:flex-row gap-6 hover:bg-white/15 transition duration-200';
-                
-                orderCard.innerHTML = `
-                    <!-- Image Preview -->
-                    <div class="md:w-1/4 flex-shrink-0 flex items-center justify-center">
-                        <!-- Limiting size for Base64 safety, but still showing the image -->
-                        <img src="${imageSrc}" alt="Customer Upload" class="order-image w-full h-auto rounded-lg shadow-lg object-contain max-h-48 md:max-h-64 border border-primary-color">
-                    </div>
-
-                    <!-- Order Details -->
-                    <div class="md:w-3/4 space-y-3">
-                        <p class="text-sm font-mono text-accent-light">Order ID: <span class="text-white font-semibold break-all">${order.id}</span></p>
-                        <h3 class="text-2xl font-bold text-primary-color">${order.firstName} ${order.lastName}</h3>
-                        
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-base">
-                            <p class="col-span-1 sm:col-span-2"><strong>Email:</strong> <span class="text-accent-light break-all">${order.email}</span></p>
-                            <p class="col-span-1"><strong>Phone:</strong> <span class="text-accent-light">${order.phone}</span></p>
-                            <p class="col-span-1"><strong>Date:</strong> <span class="text-accent-light">${orderDate}</span></p>
-                        </div>
-
-                        <div class="pt-2">
-                            <span class="font-bold text-lg mr-2">Status:</span> 
-                            <span class="text-lg font-bold ${order.status.includes('Pending') ? 'text-yellow-400' : 'text-green-400'}">${order.status}</span>
-                            <p class="text-xs font-mono text-white/50 mt-1 break-all">Customer ID: ${order.userId}</p>
-                        </div>
-                    </div>
+            sortedOrders.forEach(order => {
+                const row = document.createElement('tr');
+                row.className = 'order-row hover:bg-white/15 transition-colors duration-150';
+                row.innerHTML = `
+                    <td class="px-3 py-3 whitespace-nowrap text-sm font-medium text-primary-color">${order.id.substring(0, 6)}...</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm">${order.firstName} ${order.lastName}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm hidden sm:table-cell">${order.email}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-accent-light">${formatTimestamp(order.timestamp)}</td>
+                    <td class="px-3 py-3 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                              ${order.status.includes('Confirmed') ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                            ${order.status}
+                        </span>
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-center">
+                        <button class="text-sm font-semibold text-primary-color hover:text-accent-light" 
+                                onclick="showImageModal('${order.imageBase64}')">
+                            View
+                        </button>
+                    </td>
                 `;
-                ordersContainer.appendChild(orderCard);
+                ordersTableBody.appendChild(row);
             });
         }
 
         /**
-         * Listens to the specific lock state document and updates the UI.
+         * Toggles the order lock status in Firestore.
+         * @param {HTMLInputElement} toggle The checkbox input element.
          */
-        function initializeLockStateListener() {
-            const lockDocRef = doc(db, LOCK_DOC_PATH, 'order_lock');
-            
-            onSnapshot(lockDocRef, (docSnap) => {
-                lockToggleButton.disabled = false;
-                lockToggleButton.classList.remove('disabled:cursor-wait');
+        window.toggleOrderLock = async function(toggle) {
+            const isChecked = toggle.checked; // checked means open (unlocked)
+            const isLocked = !isChecked;      // isLocked means orders are closed
 
-                if (docSnap.exists() && docSnap.data().isLocked === true) {
-                    isOrdersLocked = true;
-                    lockStatusElement.textContent = "Orders are CLOSED";
-                    lockStatusElement.className = "bg-red-700 text-white text-xl font-semibold px-4 py-2 rounded-full";
-                    lockToggleButton.textContent = "Click to OPEN Orders";
-                    lockToggleButton.className = "px-6 py-2 rounded-full bg-green-500 text-white font-bold transition-all duration-300 transform hover:scale-105";
-                } else {
-                    isOrdersLocked = false;
-                    lockStatusElement.textContent = "Orders are OPEN";
-                    lockStatusElement.className = "bg-green-600 text-white text-xl font-semibold px-4 py-2 rounded-full";
-                    lockToggleButton.textContent = "Click to CLOSE Orders";
-                    lockToggleButton.className = "px-6 py-2 rounded-full bg-red-500 text-white font-bold transition-all duration-300 transform hover:scale-105";
-                }
-            }, (error) => {
-                console.error("Error listening to lock state:", error);
-                lockStatusElement.textContent = "Lock status error";
-                lockStatusElement.className = "bg-yellow-500 text-black text-xl font-semibold px-4 py-2 rounded-full";
-            });
-        }
-
-        /**
-         * Toggles the lock state in Firestore.
-         */
-        lockToggleButton.onclick = async () => {
-            lockToggleButton.disabled = true;
-            lockStatusElement.textContent = "Updating...";
-            lockStatusElement.className = "bg-blue-500 text-white text-xl font-semibold px-4 py-2 rounded-full";
+            orderLockToggle.disabled = true;
+            lockMessage.textContent = isLocked ? 'Locking orders...' : 'Opening orders...';
+            lockMessage.classList.remove('hidden');
 
             try {
+                if (!db) throw new Error("Database not initialized.");
+
                 const lockDocRef = doc(db, LOCK_DOC_PATH, 'order_lock');
-                // The new state is the opposite of the current state
-                await setDoc(lockDocRef, { isLocked: !isOrdersLocked }, { merge: true });
-                // The listener will update the UI automatically
+                
+                await setDoc(lockDocRef, { 
+                    isLocked: isLocked,
+                    lastUpdated: new Date().toISOString()
+                });
+                
+                lockMessage.textContent = isLocked ? 'Orders successfully LOCKED.' : 'Orders successfully OPEN.';
+                lockMessage.classList.remove('text-red-400');
+                lockMessage.classList.add('text-green-300');
+
             } catch (error) {
-                console.error("Failed to toggle lock state:", error);
-                alert("Failed to change lock state. Check console for details.");
+                console.error("Failed to toggle order lock:", error);
+                lockMessage.textContent = 'ERROR: Failed to update status. Check console.';
+                lockMessage.classList.remove('text-green-300');
+                lockMessage.classList.add('text-red-400');
+                // Revert toggle state if update failed
+                toggle.checked = !isChecked;
             } finally {
-                // The listener handles re-enabling the button when data is confirmed
+                orderLockToggle.disabled = false;
+                setTimeout(() => lockMessage.classList.add('hidden'), 3000);
             }
-        };
+        }
 
         /**
-         * Initializes Firebase and starts all listeners.
+         * Displays the uploaded image in a modal.
+         * @param {string} base64Data The Base64 image string.
+         */
+        window.showImageModal = function(base64Data) {
+            modalImage.src = base64Data;
+            imageModal.classList.remove('hidden');
+        }
+
+        /**
+         * Initializes Firebase (without authentication) and sets up listeners.
          */
         async function initializeFirebase() {
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app);
                 
-                // Anonymous sign-in is used since this is a public admin page (relies on public security rules)
-                await signInAnonymously(auth);
-                console.log("Admin Dashboard: Firebase initialized and authenticated successfully.");
+                console.log("Admin Panel: Firebase initialized (no authentication attempted).");
 
-                // Start Order History Listener
-                const ordersQuery = query(collection(db, ORDER_COLLECTION_PATH));
-                onSnapshot(ordersQuery, (snapshot) => {
-                    const orders = [];
-                    snapshot.forEach(doc => {
-                        orders.push({ id: doc.id, ...doc.data() });
-                    });
-                    renderOrders(orders);
-                }, (error) => {
-                    console.error("Error streaming orders:", error);
-                    loadingMessage.textContent = "Error fetching orders. Check security rules and console.";
-                    loadingMessage.classList.remove('text-primary-color');
-                    loadingMessage.classList.add('text-red-500');
-                });
-                
-                // Start Lock State Listener
-                initializeLockStateListener();
+                // Start listening to both lock status and orders
+                listenToOrderLock();
+                listenToOrders();
+
+                loadingIndicator.classList.add('hidden');
+                content.classList.remove('hidden');
 
             } catch (error) {
-                console.error("Admin Dashboard: Firebase initialization failed:", error);
-                loadingMessage.textContent = `FATAL ERROR: Initialization failed. See console.`;
-                loadingMessage.classList.remove('text-primary-color');
-                loadingMessage.classList.add('text-red-500');
+                console.error("Admin Panel: Firebase initialization failed:", error);
+                loadingIndicator.textContent = 'Error loading admin panel. Please refresh.';
             }
         }
 
-        // Initialize Firebase on load
-        initializeFirebase();
+        /**
+         * Listens to the lock status document and updates the UI.
+         */
+        function listenToOrderLock() {
+            if (!db) return;
+            
+            const lockDocRef = doc(db, LOCK_DOC_PATH, 'order_lock');
+            
+            onSnapshot(lockDocRef, (docSnap) => {
+                let isLocked = true;
+                if (docSnap.exists()) {
+                    isLocked = docSnap.data().isLocked === true;
+                } else {
+                    // Default to open if doc doesn't exist
+                    isLocked = false; 
+                }
 
+                // Update UI based on lock status
+                if (isLocked) {
+                    lockStatusDisplay.textContent = 'LOCKED (Orders Closed)';
+                    lockStatusDisplay.classList.remove('text-green-400');
+                    lockStatusDisplay.classList.add('text-red-400');
+                    orderLockToggle.checked = false;
+                    toggleLabel.textContent = 'Set to OPEN';
+                } else {
+                    lockStatusDisplay.textContent = 'OPEN (Accepting Orders)';
+                    lockStatusDisplay.classList.remove('text-red-400');
+                    lockStatusDisplay.classList.add('text-green-400');
+                    orderLockToggle.checked = true;
+                    toggleLabel.textContent = 'Set to LOCK';
+                }
+
+            }, (error) => {
+                console.error("Error checking lock state:", error);
+                lockStatusDisplay.textContent = 'STATUS ERROR';
+            });
+        }
+        
+        /**
+         * Listens to the public orders collection.
+         */
+        function listenToOrders() {
+            if (!db) return;
+            
+            const ordersCollectionRef = collection(db, ORDERS_COLLECTION_PATH);
+            // We cannot use orderBy here without potentially causing index errors, so we rely on client-side sorting.
+            const ordersQuery = query(ordersCollectionRef); 
+
+            onSnapshot(ordersQuery, (snapshot) => {
+                const orders = [];
+                snapshot.forEach(doc => {
+                    orders.push({ id: doc.id, ...doc.data() });
+                });
+                renderOrders(orders);
+            }, (error) => {
+                console.error("Error listening to orders:", error);
+                ordersTableBody.innerHTML = `
+                    <tr id="errorOrdersRow">
+                        <td colspan="6" class="p-4 text-center text-red-400">Error loading orders.</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Initialize the application
+        initializeFirebase();
     </script>
 </body>
 </html>
