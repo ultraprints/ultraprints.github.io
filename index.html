@@ -23,7 +23,7 @@
         }
     </script>
     <style>
-        /* Custom styles for Glassmorphism base and logo */
+        /* Custom styles for Glassmorphism base */
         body {
             font-family: 'Inter', sans-serif;
             /* New Vibrant background: Deep Purple/Fuchsia gradient */
@@ -51,36 +51,11 @@
             cursor: pointer; /* Added cursor to indicate interactivity */
         }
 
-        /* NEW: Hover effects for the glass cards */
+        /* Hover effects for the glass cards */
         .glass-card:hover {
             transform: scale(1.02) translateY(-5px); /* Lift and enlarge slightly on hover */
             box-shadow: 0 15px 70px 0 rgba(192, 38, 211, 0.5); /* Stronger glow on hover */
             border: 1px solid rgba(255, 255, 255, 0.8); /* Highlight border on hover */
-        }
-        
-        .logo-placeholder {
-            width: 80px;
-            height: 80px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 2rem;
-            box-shadow: 0 0 25px rgba(192, 38, 211, 0.7); /* Primary color glow */
-            transition: transform 0.3s ease;
-            animation: pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1); /* Added pulse animation */
-        }
-        .logo-placeholder:hover {
-            transform: scale(1.05) rotate(5deg);
-        }
-
-        /* Adjustments for text contrast */
-        .glass-card p, .glass-card a {
-            color: #fce7f3; /* Light pink/purple for body text */
         }
         
         /* Loading Screen styles */
@@ -112,10 +87,6 @@
         /* Keyframe Animations */
         @keyframes spin {
             to { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(192, 38, 211, 0.7); }
-            50% { box-shadow: 0 0 40px rgba(232, 121, 249, 1); }
         }
         /* Applied to all glass cards via JS when loading is complete */
         .animate-content {
@@ -149,7 +120,12 @@
 
     <!-- Loading Screen (Always first in the body) -->
     <div id="loadingScreen">
-        <div class="logo-placeholder mb-6 border-none shadow-none">U</div>
+        <!-- Logo implementation for loading screen (references ultra.png) -->
+        <img src="ultra.png" 
+             alt="UltraPrints Logo" 
+             class="w-20 h-20 rounded-full mb-6 border-2 border-primary-color animate-pulse"
+             onerror="this.onerror=null; this.src='https://placehold.co/100x100/4C1D95/FFFFFF?text=U'; this.classList.remove('animate-pulse');"
+        >
         <div class="spinner"></div>
         <p class="mt-4 text-white font-semibold">Loading UltraPrints...</p>
     </div>
@@ -160,7 +136,14 @@
         <!-- 1. Hero Section (The main Glass Card) -->
         <div class="glass-card p-8 sm:p-12 text-center">
             <header class="mb-10">
-                <div class="mx-auto logo-placeholder mb-6" id="logoPlaceholder">U</div>
+                <!-- Logo implementation for main content (references ultra.png) -->
+                <div class="mx-auto w-20 h-20 mb-6 flex items-center justify-center">
+                    <img src="ultra.png" 
+                         alt="UltraPrints Logo" 
+                         class="rounded-full w-full h-full shadow-2xl border-2 border-white/50 transition duration-300 hover:scale-105"
+                         onerror="this.onerror=null; this.src='https://placehold.co/100x100/4C1D95/FFFFFF?text=U'; this.classList.remove('animate-pulse');"
+                    >
+                </div>
                 <h1 class="text-6xl font-extrabold tracking-tight leading-tight md:text-7xl">UltraPrints</h1>
                 <p class="text-xl mt-4 max-w-3xl mx-auto text-accent-light">
                     Your vision, printed to perfection. Experience unparalleled clarity and stunning detail with our next-generation custom printing service.
@@ -314,8 +297,6 @@
                 loadingScreen.style.opacity = '0';
                 // CRITICAL FIX: Disable pointer events immediately so the content underneath is clickable while the screen fades out.
                 loadingScreen.style.pointerEvents = 'none'; 
-                
-                // AUDIO: Removed automatic playback attempt here. User must click the new button.
                 
                 // Remove initial opacity class from main content
                 mainContent.classList.remove('opacity-0'); 
